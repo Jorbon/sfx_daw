@@ -1,28 +1,24 @@
-
-
 use std::ops::Range;
-
-// use crate::*;
 
 
 #[derive(Clone)]
 pub struct AudioTrack<const N: usize> {
 	pub data: [Box<[f32]>; N],
-	pub length: usize,
+	pub chapter_ends: Vec::<usize>,
 }
 
 impl<const N: usize> AudioTrack<N> {
 	pub fn new(frames: usize) -> Self {
 		Self {
 			data: core::array::from_fn(|_c| vec![0.0; frames].into_boxed_slice()),
-			length: frames,
+			chapter_ends: vec![],
 		}
 	}
 	
 	pub fn clone_range(track: &AudioTrack<N>, range: Range<usize>) -> Self {
 		Self {
 			data: core::array::from_fn(|c| track.data[c][range.clone()].iter().cloned().collect()),
-			length: range.len(),
+			chapter_ends: vec![],
 		}
 	}
 	

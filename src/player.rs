@@ -6,8 +6,6 @@ use crate::*;
 
 
 
-
-
 #[derive(Clone)]
 pub struct PlaybackState {
 	pub index: usize,
@@ -55,7 +53,7 @@ impl AudioPlayer {
 					if state_params.playing {
 						
 						let current_frame = state_params.frame;
-						let frames_left = track.length - current_frame;
+						let frames_left = track.chapter_ends.last().unwrap_or(&track.padded_length()) - current_frame;
 						let frames_now = data.len() / 2;
 						
 						if frames_left >= frames_now {
@@ -151,6 +149,10 @@ impl AudioPlayer {
 		return tracks_binding.len() - 1
 	}
 	
+	pub fn add_tracks(&self, tracks: impl Iterator<Item = AudioTrack<2>>) -> Vec<usize> {
+		tracks.map(|track| self.add_track(track)).collect()
+	}
+	
 	pub fn remove_track(&self, index: usize) {
 		let mut tracks_binding = self.tracks.write().unwrap();
 		if index >= tracks_binding.len() { return }
@@ -166,13 +168,15 @@ impl AudioPlayer {
 		}
 	}
 	
-	pub fn play_track(&self, index: usize) {
-		*self.playback_state.write().unwrap() = Some(PlaybackState {
-			index,
-			frame: 0,
-			playing: true,
-			queue: VecDeque::new(),
-		});
+	pub fn play_track(&self, index: usize, chapter: usize) {
+		if let Some(Some(track)) = (*self.tracks.read().unwrap()).get(index) {
+			*self.playback_state.write().unwrap() = Some(PlaybackState {
+				index,
+				frame: if chapter == 0 {0} else {*track.chapter_ends.get(chapter - 1).unwrap_or(&0)},
+				playing: true,
+				queue: VecDeque::new(),
+			});
+		}
 	}
 	
 	pub fn is_playing(&self) -> bool {
