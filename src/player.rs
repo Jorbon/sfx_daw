@@ -53,7 +53,7 @@ impl AudioPlayer {
 					if state_params.playing {
 						
 						let current_frame = state_params.frame;
-						let frames_left = track.chapter_ends.last().unwrap_or(&track.padded_length()) - current_frame;
+						let frames_left = track.length().saturating_sub(current_frame);
 						let frames_now = data.len() / 2;
 						
 						if frames_left >= frames_now {
@@ -89,18 +89,16 @@ impl AudioPlayer {
 							
 							let mut i = 0;
 							for frame in 0..frames_left {
-								for channel in 0..2 {
-									data[i] = track.data[channel][current_frame + frame];
-									i += 1;
-								}
+								data[i]   = track.data[0][current_frame + frame];
+								data[i|1] = track.data[1][current_frame + frame];
+								i += 2;
 							}
 							
 							if let Some(next_track) = next_track {
 								for frame in 0..(frames_now - frames_left) {
-									for channel in 0..2 {
-										data[i] = next_track.data[channel][current_frame + frame];
-										i += 1;
-									}
+									data[i]   = next_track.data[0][frame];
+									data[i|1] = next_track.data[1][frame];
+									i += 2;
 								}
 							}
 							
@@ -168,11 +166,11 @@ impl AudioPlayer {
 		}
 	}
 	
-	pub fn play_track(&self, index: usize, chapter: usize) {
-		if let Some(Some(track)) = (*self.tracks.read().unwrap()).get(index) {
+	pub fn play_track(&self, index: usize) {
+		if let Some(Some(_track)) = (*self.tracks.read().unwrap()).get(index) {
 			*self.playback_state.write().unwrap() = Some(PlaybackState {
 				index,
-				frame: if chapter == 0 {0} else {*track.chapter_ends.get(chapter - 1).unwrap_or(&0)},
+				frame: 0,
 				playing: true,
 				queue: VecDeque::new(),
 			});
@@ -192,6 +190,13 @@ impl AudioPlayer {
 			queue.push_back(index);
 		}
 		
+	}
+	
+	pub fn seek(&self, seconds: f64) {
+		let mut state_binding = self.playback_state.write().unwrap();
+		if let Some(PlaybackState { frame, .. }) = state_binding.as_mut() {
+			*frame = (seconds * 48000.0) as usize;
+		}
 	}
 	
 }
